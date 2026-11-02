@@ -47,6 +47,7 @@ pipeline {
     post {
         always {
             sh 'docker compose -p sinhan-food-test -f compose.yaml -f compose.test.yaml logs --no-color --tail 100 > .artifacts/integration-services.log 2>&1 || true'
+            sh 'docker compose -p sinhan-food -f compose.yaml -f compose.jenkins-deploy.yaml logs --no-color --tail 100 > .artifacts/deployment-services.log 2>&1 || true'
             sh 'docker compose -p sinhan-food-test -f compose.yaml -f compose.test.yaml down --volumes --remove-orphans || true'
             archiveArtifacts allowEmptyArchive: true, artifacts: '.artifacts/*.log,.artifacts/*release*.json,.artifacts/*tests.xml'
         }

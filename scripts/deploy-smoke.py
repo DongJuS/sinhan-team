@@ -3,6 +3,15 @@ import uuid
 import httpx
 
 with httpx.Client(timeout=15) as client:
+    for _ in range(60):
+        try:
+            if client.get("http://gateway:8080/actuator/health").status_code == 200:
+                break
+        except httpx.TransportError:
+            pass
+        time.sleep(1)
+    else:
+        raise RuntimeError("Gateway did not become ready")
     r = client.post(
         "http://keycloak:8080/realms/food/protocol/openid-connect/token",
         data={
