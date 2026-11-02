@@ -1,0 +1,38 @@
+services:
+  gateway:
+    image: sinhan-team/gateway:${RELEASE_SHA:?Set RELEASE_SHA to a verified commit}
+    environment:
+      OIDC_ISSUER: http://localhost:38081/realms/food
+    ports: !override ["0.0.0.0:18080:8080"]
+  order-service:
+    image: sinhan-team/order-service:${RELEASE_SHA:?Set RELEASE_SHA to a verified commit}
+    environment:
+      OIDC_ISSUER: http://localhost:38081/realms/food
+  order-worker:
+    image: sinhan-team/order-worker:${RELEASE_SHA:?Set RELEASE_SHA to a verified commit}
+    environment:
+      OIDC_ISSUER: http://localhost:38081/realms/food
+  agent-service:
+    image: sinhan-team/agent-service:${RELEASE_SHA:?Set RELEASE_SHA to a verified commit}
+    environment:
+      OIDC_ISSUER: http://localhost:38081/realms/food
+  benefit-service:
+    image: sinhan-team/benefit-service:${RELEASE_SHA:?Set RELEASE_SHA to a verified commit}
+    environment:
+      OIDC_ISSUER: http://localhost:38081/realms/food
+  control-service:
+    image: sinhan-team/control-service:${RELEASE_SHA:?Set RELEASE_SHA to a verified commit}
+    environment:
+      OIDC_ISSUER: http://localhost:38081/realms/food
+  payment-service:
+    image: sinhan-team/payment-service:${RELEASE_SHA:?Set RELEASE_SHA to a verified commit}
+    environment:
+      OIDC_ISSUER: http://localhost:38081/realms/food
+  merchant-simulator:
+    image: sinhan-team/merchant-simulator:${RELEASE_SHA:?Set RELEASE_SHA to a verified commit}
+    environment:
+      OIDC_ISSUER: http://localhost:38081/realms/food
+  keycloak:
+    environment:
+      KC_HOSTNAME: http://localhost:38081
+    ports: !override ["0.0.0.0:18081:8080"]

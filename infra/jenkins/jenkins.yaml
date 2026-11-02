@@ -1,0 +1,35 @@
+jenkins:
+  systemMessage: "sinhan-team — local Jenkins CI/CD; trusted main branch only"
+  numExecutors: 1
+  mode: NORMAL
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: admin
+          password: "${jenkins_admin_password}"
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+  crumbIssuer:
+    standard: {}
+unclassified:
+  location:
+    url: http://localhost:18090/
+jobs:
+  - script: >
+      pipelineJob('sinhan-team') {
+        description('Build and verify the public DongJuS/sinhan-team main branch, then deploy the tested commit to the isolated local Docker environment.')
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote { url('https://github.com/DongJuS/sinhan-team.git') }
+                branch('*/main')
+              }
+            }
+            scriptPath('Jenkinsfile')
+            lightweight(true)
+          }
+        }
+      }

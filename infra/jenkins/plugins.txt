@@ -1,0 +1,7 @@
+configuration-as-code
+git
+workflow-aggregator
+pipeline-model-definition
+job-dsl
+junit
+timestamper
