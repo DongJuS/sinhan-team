@@ -1,0 +1,31 @@
+server:
+  port: 8080
+spring:
+  application:
+    name: payment-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://postgres:5432/food?currentSchema=payments}
+    username: ${DB_USER:payments_app}
+    password: ${DB_PASSWORD:payments_dev_only}
+  flyway:
+    default-schema: payments
+    schemas: payments
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  tracing:
+    enabled: ${TRACING_ENABLED:false}
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: http://otel-collector:4318/v1/traces
+logging:
+  structured:
+    format:
+      console: logstash
