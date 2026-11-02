@@ -73,6 +73,8 @@ public class ControlService {
     var p = Canonical.read(row.get("payload").toString(), Proposal.class);
     if (!p.userId().equals(user)) throw new Problem(403, "NOT_OWNER", "주문 소유자만 승인할 수 있습니다.");
     if (version != p.version()) throw new Problem(409, "STALE_VERSION", "최신 주문안을 확인해주세요.");
+    if ("REVOKED".equals(row.get("status")))
+      throw new Problem(409, "APPROVAL_REVOKED", "이 주문안은 취소되었습니다.");
     if (Set.of("APPROVED", "CLAIMED").contains(row.get("status"))) return grant(row);
     verify(p);
     return tx.execute(
