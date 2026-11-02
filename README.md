@@ -9,6 +9,7 @@ Java/Spring Boot 주문 서비스가 Python/FastAPI Agent와 혜택·승인통�
 GitHub Actions 없이 자체 호스팅 Jenkins가 테스트 → 이미지 빌드 → 통합·복구 검증 → 커밋 SHA 태그 → 로컬 시연 배포를 수행합니다.
 
 ```bash
+./scripts/start-local-ai.sh
 ./scripts/start-jenkins.sh
 ```
 
@@ -20,6 +21,7 @@ Docker Compose v2.24.4 이상과 Docker Engine이 필요합니다. Docker VM에 
 
 ```bash
 cp .env.example .env
+./scripts/start-local-ai.sh
 docker compose up -d --build --wait
 ```
 
@@ -28,7 +30,7 @@ docker compose up -d --build --wait
 - 다른 사용자: `other` / `demo-password`
 - Keycloak: http://localhost:18081 (`admin` / `.env`의 `KEYCLOAK_ADMIN_PASSWORD`)
 - API 문서: `contracts/public-api.yaml`, 화면 서버의 `/openapi.yaml`
-- 기본 AI 모드는 외부 호출 없는 `fixture`입니다.
+- 기본 AI는 **LangGraph + 로컬 Qwen3 14B Q8_0**입니다. Ollama는 Mac에서 Metal GPU를 사용하고 Agent는 HTTP로 연결합니다. CI 통합 테스트에서만 `fixture`를 명시합니다.
 
 화면에서 로그인 → 음식 조건 입력 → 자동 추천·혜택 비교 → 최종 승인 → 완료/환불을 확인합니다. 예: **배달비 포함 2만원 안에서 두 명이 먹을 한식 점심**. 예산·인원 누락 시 추가 입력을 요청하며, 화면에서 조건을 보완해 새 구매 요청을 만들 수 있습니다.
 
@@ -86,19 +88,44 @@ POST /v1/proposals/{id}/approvals           {"version": 1}; 202
 
 내부 API와 권한 표는 `contracts/internal-api.md`를 참고하세요. 주문 실행은 `order-worker` 서비스 계정, 고객 승인은 로그인 사용자의 토큰으로 호출합니다. Agent의 권한은 가맹점 읽기뿐이며 결제·승인을 실행할 수 없습니다. 모든 서비스에서 JWT 발급자·서명·audience·만료·주체와 endpoint 권한을 확인합니다.
 
-## AI·RAG 설정
+## LangGraph·로컬 Qwen
 
-기본 fixture 추출은 한국어 숫자·금액·인원·제외 재료를 해석합니다. LLM을 켜려면 `.env`에 OpenAI 호환 API의 `AI_MODE=live`, `LLM_BASE_URL`(예: `/v1`까지), `LLM_API_KEY`, `LLM_MODEL`을 설정하고 Agent를 재생성합니다. 실제 모델 결과도 구조 검증을 통과해야 합니다. 명시적 입력 예산·인원은 모델 추출보다 우선합니다.
+구성은 `LangGraph 1.2.19 → Ollama → Qwen3 14B Q8_0`입니다. LangGraph는 AI 처리 단계를 연결하고 Qwen이 조건과 설명 이유를 추출합니다. 주문 승인·결제 상태는 Java 서비스가 관리합니다.
 
-RAG 근거는 `rag.py`의 시연 문서를 별도 배치로 색인합니다. 기본은 키워드 검색, 임베딩 설정 시 같은 모델의 벡터를 PostgreSQL 배열로 저장하고 코사인 유사도로 조회합니다. 소규모 시연용 정확 검색이며 대규모 ANN 인덱스는 포함하지 않습니다.
+- 계획 그래프: 조건 추출 → 검증 → (누락 시 추가 입력 대기 / 유효하면 카탈로그 조회 → 후보 생성) → 실행 근거 저장.
+- 설명 그래프: 로컬 RAG 근거 조회 → Qwen의 이유 코드 선택 → 검증된 금액으로 설명 렌더링.
+- 잘못된 모델 출력은 그래프에서 한 번만 재시도합니다. 서버 장애·반복된 출력 오류를 fixture 결과로 바꾸지 않습니다.
+- `agent.plan_runs`에 실행 모델과 노드 경로를 저장합니다. 요청이 중단되면 Java의 영속 작업이 읽기·계획 단계를 다시 실행합니다.
+
+Mac에 [Ollama](https://ollama.com/download)가 설치된 상태에서 실행합니다.
 
 ```bash
-# EMBEDDING_BASE_URL, EMBEDDING_API_KEY, EMBEDDING_MODEL 설정 후
-docker compose up -d --force-recreate agent-service
-docker compose exec agent-service python rag.py
+./scripts/start-local-ai.sh
 ```
 
-모델·차원이 달라지면 재색인이 필요합니다. RAG 근거는 설명에 사용하며 금액은 Java 계산 결과로 고정합니다. 실제 LLM 모드의 설명도 허용된 이유 코드만 받아 금액을 템플릿에 넣습니다. 사용자·서비스 토큰과 결제 자격증명은 모델에 전달하지 않습니다.
+스크립트는 localhost **11435**의 프로젝트 전용 서버를 시작하고 `qwen3:14b-q8_0`를 내려받아 `sinhan-qwen:14b-q8_0` 별칭을 만듭니다. 모델 파일은 약 **16GB**, 실행 메모리는 **10~20GB 목표**입니다. 문맥 4,096, 출력 최대 384토큰, 동시 추론 1개, thinking 비활성화로 시작합니다. 메모리 사용량은 문맥·런타임에 따라 달라지므로 별도 검사에서 Ollama가 보고하는 실제 로드 크기를 확인합니다.
+
+- 모델 저장: `.local-ai/models` — Git·Docker 빌드에서 제외.
+- 서버 로그·PID: `.artifacts/ollama.log`, `.artifacts/ollama.pid`.
+- 서버에서 `OLLAMA_NO_CLOUD=1`, 최대 로드 모델 1개를 적용합니다. LangSmith 외부 추적도 비활성화합니다.
+- HTTP 주소는 localhost·Docker host의 로컬 서버만 허용하고 cloud 모델 이름을 거절합니다. API 키가 필요하지 않습니다.
+- 호스트 확인: `OLLAMA_HOST=127.0.0.1:11435 ollama ps`.
+- 사용 후 메모리 해제: `OLLAMA_HOST=127.0.0.1:11435 ollama stop sinhan-qwen:14b-q8_0`.
+- Agent 컨테이너 주소: `http://host.docker.internal:11435`. 현재 구성은 Apple Silicon Mac + Docker Desktop 기준입니다.
+
+기본 RAG는 작은 시연 문서의 로컬 키워드 검색입니다. 임베딩이 필요하면 로컬 Ollama에 Qwen 임베딩 모델을 준비하고 `RAG_EMBEDDING_MODEL`을 설정한 뒤 `docker compose exec agent-service python rag.py`로 재색인합니다. 외부 임베딩 API를 호출하지 않습니다. 임베딩 모델을 추가하면 모델 전환·추가 로드 비용을 별도로 확인해야 합니다.
+
+실제 Qwen 평가를 일반 테스트·부하 측정과 분리했습니다.
+
+```bash
+# 기본 Agent 이미지 빌드 후, 실제 로컬 모델로 LangGraph 분기·설명·메모리 검증
+docker compose build agent-service
+./scripts/check-local-ai.sh
+# 호스트 가상환경에서 직접 실행
+AI_MODE=local OLLAMA_BASE_URL=http://127.0.0.1:11435 .venv/bin/python tests/evaluate_local_ai.py
+```
+
+Jenkins는 고정 응답으로 통합·복구 테스트를 수행한 뒤, DEPLOY=true일 때 실제 로컬 Qwen 검증을 통과해야 배포합니다. 배포 환경은 `local` 모드이며 모델 응답 지연에 대응해 Agent 호출만 별도 타임아웃을 사용합니다. 결제·가맹점 호출의 짧은 타임아웃은 유지합니다.
 
 ## 검증
 

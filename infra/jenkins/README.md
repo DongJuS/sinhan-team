@@ -3,6 +3,7 @@
 GitHub Actions는 사용하지 않습니다. 공개 저장소 https://github.com/DongJuS/sinhan-team 의 main을 Jenkins가 HTTPS로 체크아웃하므로 GitHub 토큰이 필요하지 않습니다.
 
 ```bash
+./scripts/start-local-ai.sh
 ./scripts/start-jenkins.sh
 ```
 
@@ -20,9 +21,10 @@ GitHub Actions는 사용하지 않습니다. 공개 저장소 https://github.com
 2. Java 단위 테스트, Python 테스트·Agent 평가, OpenAPI 검증.
 3. 독립 Docker 이미지 빌드.
 4. 테스트 전용 환경에서 통합·장애 복구 테스트. 이 환경의 볼륨만 초기화합니다.
-5. 통과한 이미지를 `sinhan-team/<service>:<commit-sha>`로 태그하고 이미지 ID를 아카이브.
-6. DEPLOY=true이면 해당 이미지로 로컬 시연 환경 배포 후 로그인·주문안·승인 대기 smoke 검증.
-7. JUnit 결과와 로그·배포 커밋 정보를 Jenkins 빌드에 보관.
+5. DEPLOY=true이면 Mac의 로컬 Qwen으로 LangGraph 분기·출력·로드 메모리 검증. 외부 AI 키를 사용하지 않습니다.
+6. 통과한 이미지를 `sinhan-team/<service>:<commit-sha>`로 태그하고 이미지 ID를 아카이브.
+7. DEPLOY=true이면 해당 이미지로 로컬 시연 환경 배포 후 로그인·주문안·승인 대기 smoke 검증.
+8. JUnit 결과와 로그·배포 커밋 정보를 Jenkins 빌드에 보관.
 
 테스트가 실패하면 배포 단계에 진입하지 않습니다. 배포 자체가 실패하면 기존 데이터를 보존하고 빌드를 실패 처리합니다. DB 마이그레이션을 자동으로 되돌리지는 않습니다. 복구 시 호환성을 검토한 이전 이미지 SHA를 사용합니다.
 
@@ -42,3 +44,9 @@ docker compose -f compose.jenkins.yaml ps
 ```
 
 플러그인은 공식 Jenkins update center, Docker CLI는 Docker 공식 Debian 저장소에서 설치합니다. 기본 Jenkins 이미지는 `2.580.2-jdk21`입니다. 초기 플러그인 설치에는 인터넷 연결이 필요합니다.
+
+## 로컬 AI 연결
+
+Ollama는 Jenkins/Docker VM 밖의 Mac에서 실행하여 Metal GPU와 10~20GB 모델 메모리를 사용합니다. Agent와 검증 컨테이너는 `host.docker.internal:11435`로 연결합니다. 16GB 모델을 Jenkins 이미지나 Git 저장소에 포함하지 않습니다.
+
+일반 통합 테스트는 `compose.test.yaml`에서 `AI_MODE=fixture`로 고정합니다. 실제 모델 검증은 `Local Qwen validation` 단계에서 별도로 실행하고 `.artifacts/local-ai-validation.log`에 결과를 보관합니다. 모델 서버가 꺼져 있거나 준비되지 않았다면 배포 검증이 실패하며 시연 응답으로 대체하지 않습니다. 코드 검사만 필요하면 DEPLOY=false로 실행할 수 있습니다.
