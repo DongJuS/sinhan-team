@@ -11,6 +11,8 @@ services:
       OIDC_ISSUER: http://localhost:28081/realms/food
   agent-service:
     environment:
+      AI_MODE: fixture
+      RAG_EMBEDDING_MODEL: ""
       OIDC_ISSUER: http://localhost:28081/realms/food
   benefit-service:
     environment:

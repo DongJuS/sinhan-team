@@ -144,13 +144,15 @@ services:
       <<: *oidc
       SERVICE_CLIENT_SECRET: agent-service-dev-only
       DATABASE_URL: postgresql://agent_app:${AGENT_DB_PASSWORD:-agent_dev_only}@postgres:5432/food?options=-csearch_path%3Dagent
-      AI_MODE: ${AI_MODE:-fixture}
-      LLM_BASE_URL: ${LLM_BASE_URL:-}
-      LLM_API_KEY: ${LLM_API_KEY:-}
-      LLM_MODEL: ${LLM_MODEL:-}
-      EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-}
-      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
-      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-}
+      AI_MODE: ${AI_MODE:-local}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11435}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-sinhan-qwen:14b-q8_0}
+      OLLAMA_CONTEXT_LENGTH: "4096"
+      OLLAMA_REQUEST_TIMEOUT_SECONDS: "90"
+      OLLAMA_MAX_OUTPUT_TOKENS: "384"
+      RAG_EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-}
+      LANGSMITH_TRACING: "false"
+      LANGCHAIN_TRACING_V2: "false"
     depends_on:
       postgres: {condition: service_healthy}
       keycloak: {condition: service_healthy}

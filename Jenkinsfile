@@ -36,6 +36,13 @@ pipeline {
         stage('Integration and crash recovery') {
             steps { sh './scripts/test-integration.sh' }
         }
+        stage('Local Qwen validation') {
+            when { expression { params.DEPLOY } }
+            steps { sh '''#!/usr/bin/env bash
+set -euo pipefail
+./scripts/check-local-ai.sh | tee .artifacts/local-ai-validation.log
+''' }
+        }
         stage('Tag verified release') {
             steps { sh './scripts/tag-release.sh' }
         }

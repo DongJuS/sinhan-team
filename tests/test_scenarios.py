@@ -456,3 +456,21 @@ def test_rag_evidence_and_agent_scope(auth):
         ).status_code
         == 403
     )
+
+
+def test_agent_executes_langgraph_and_persists_node_trace(auth):
+    r = call(auth, "agent-service", "/internal/v1/runtime", method="GET")
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["orchestrator"] == "langgraph" and data["mode"] == "fixture"
+    assert {"extract", "validate", "catalog", "candidates", "persist"} <= set(
+        data["planningNodes"]
+    )
+    with psycopg.connect(
+        "host=postgres dbname=food user=agent_app password=agent_dev_only options=-csearch_path=agent"
+    ) as db:
+        row = db.execute(
+            "SELECT runtime,node_trace FROM plan_runs WHERE result->>'status'='OK' ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        assert row and row[0]["orchestrator"] == "langgraph"
+        assert row[1] == ["extract", "validate", "catalog", "candidates", "persist"]

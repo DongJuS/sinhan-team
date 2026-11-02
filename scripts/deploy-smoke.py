@@ -38,7 +38,7 @@ with httpx.Client(timeout=15) as client:
     )
     assert r.status_code == 202, r.status_code
     request_id = r.json()["id"]
-    for _ in range(60):
+    for _ in range(240):
         result = client.get(
             "http://gateway:8080/v1/purchase-requests/" + request_id, headers=headers
         )
