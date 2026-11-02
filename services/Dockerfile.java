@@ -3,7 +3,7 @@ WORKDIR /build
 ENV MAVEN_OPTS=-Xmx512m
 COPY pom.xml .
 COPY services services
-RUN mvn -B -ntp package -DskipTests
+RUN --mount=type=cache,id=sinhan-maven,target=/root/.m2,sharing=locked mvn -B -ntp package -DskipTests
 ARG SERVICE
 RUN cp services/${SERVICE}/target/${SERVICE}-0.1.0.jar /app.jar
 FROM eclipse-temurin:21-jre

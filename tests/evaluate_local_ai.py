@@ -66,7 +66,9 @@ async def main():
         raise RuntimeError("This check requires AI_MODE=local")
     report = {"orchestrator": "langgraph", "model": settings.model, "cases": []}
     async with (
-        httpx.AsyncClient(timeout=10) as model_http,
+        httpx.AsyncClient(
+            timeout=10, transport=httpx.AsyncHTTPTransport(retries=2), trust_env=False
+        ) as model_http,
         httpx.AsyncClient(
             transport=httpx.MockTransport(lambda r: httpx.Response(200, json=CATALOG))
         ) as catalog_http,

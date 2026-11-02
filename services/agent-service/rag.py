@@ -53,7 +53,7 @@ async def ingest():
     vectors = [None] * len(DOCUMENTS)
     model = "lexical-v1"
     if os.getenv("RAG_EMBEDDING_MODEL"):
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with httpx.AsyncClient(timeout=30, trust_env=False) as client:
             vectors = await embed(client, [text for _, text in DOCUMENTS])
         model = os.environ["RAG_EMBEDDING_MODEL"]
     with psycopg.connect(os.environ["DATABASE_URL"]) as db:

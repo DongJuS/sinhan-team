@@ -11,7 +11,10 @@ import pytest
 BASE = os.getenv("BASE_URL", "http://gateway:8080")
 TOKEN = "http://keycloak:8080/realms/food/protocol/openid-connect/token"
 USER = "00000000-0000-0000-0000-000000000001"
-CLIENT = httpx.Client(timeout=40)
+# Retry connection establishment only; HTTP status and business assertions remain strict.
+CLIENT = httpx.Client(
+    timeout=40, transport=httpx.HTTPTransport(retries=2), trust_env=False
+)
 
 
 def token(client, username=None):

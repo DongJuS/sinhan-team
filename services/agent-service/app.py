@@ -18,7 +18,11 @@ async def lifespan(app):
     await asyncio.to_thread(store.migrate)
     if not os.getenv("RAG_EMBEDDING_MODEL"):
         await ingest()
-    async with httpx.AsyncClient(timeout=httpx.Timeout(10, connect=3)) as client:
+    async with httpx.AsyncClient(
+        timeout=httpx.Timeout(10, connect=3),
+        transport=httpx.AsyncHTTPTransport(retries=2),
+        trust_env=False,
+    ) as client:
         app.state.client = client
         app.state.workflow = AgentWorkflow(client, service, store)
         yield
