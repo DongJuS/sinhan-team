@@ -1,0 +1,5 @@
+FROM qwen3:14b-q8_0
+PARAMETER num_ctx 4096
+PARAMETER num_predict 384
+PARAMETER temperature 0
+PARAMETER seed 42

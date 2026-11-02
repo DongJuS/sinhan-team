@@ -7,3 +7,4 @@
 .ci-secrets
 .ci-cache
 .artifacts
+.local-ai
