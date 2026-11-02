@@ -1,5 +1,6 @@
 FROM maven:3.9.11-eclipse-temurin-21 AS build
 WORKDIR /build
+ENV MAVEN_OPTS=-Xmx512m
 COPY pom.xml .
 COPY services services
 RUN mvn -B -ntp package -DskipTests
@@ -11,4 +12,4 @@ RUN useradd --system --uid 10001 app
 WORKDIR /app
 COPY --from=build /app.jar app.jar
 USER app
-ENTRYPOINT ["java","-XX:MaxRAMPercentage=70","-jar","app.jar"]
+ENTRYPOINT ["java","-Xms64m","-Xmx256m","-jar","app.jar"]

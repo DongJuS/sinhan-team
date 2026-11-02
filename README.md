@@ -16,7 +16,7 @@ Jenkins는 http://localhost:18090, CI/CD로 배포한 화면은 http://localhost
 
 ## 실행
 
-Docker Compose v2.24.4 이상과 Docker Engine이 필요합니다. 호스트에 Java·Python을 설치하지 않아도 컨테이너로 실행할 수 있습니다.
+Docker Compose v2.24.4 이상과 Docker Engine이 필요합니다. Docker VM에 8GiB 이상을 권장하며 JVM 힙·컨테이너 메모리·DB 커넥션 풀 상한을 명시했습니다. 직접 실행과 CI 환경을 동시에 여러 벌 띄우면 추가 메모리가 필요합니다. 호스트에 Java·Python을 설치하지 않아도 컨테이너로 실행할 수 있습니다.
 
 ```bash
 cp .env.example .env

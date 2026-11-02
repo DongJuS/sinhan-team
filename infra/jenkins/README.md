@@ -9,7 +9,7 @@ GitHub Actions는 사용하지 않습니다. 공개 저장소 https://github.com
 - Jenkins: http://localhost:18090
 - 관리자: `admin`
 - 생성된 비밀번호: `.ci-secrets/jenkins_admin_password` (Git 제외, 최초 실행 시 생성)
-- Job: `sinhan-team`. 처음에는 **Build with Parameters → DEPLOY=true**로 실행합니다. 이후 5분 간격 SCM polling으로 main 변경을 감지합니다.
+- Job: `sinhan-team`. 처음에는 **Build Now**로 실행합니다. Jenkinsfile이 로드된 이후에는 **Build with Parameters → DEPLOY=true**로 실행합니다. 이후 5분 간격 SCM polling으로 main 변경을 감지합니다.
 - CD 시연 화면: http://localhost:38080
 - CD Keycloak: http://localhost:38081
 - 시연 사용자: `demo` / `demo-password`

@@ -4,7 +4,7 @@ cd "$(dirname "$0")/.."
 mkdir -p .artifacts .ci-cache/m2 .ci-cache/pip
 uid_gid="$(id -u):$(id -g)"
 docker compose config --quiet
-docker run --rm --user "$uid_gid" -e HOME=/tmp -e MAVEN_CONFIG=/tmp/maven \
+docker run --rm --memory=1g --user "$uid_gid" -e HOME=/tmp -e MAVEN_CONFIG=/tmp/maven -e MAVEN_OPTS=-Xmx512m \
   -v "$PWD:/workspace" -w /workspace maven:3.9.11-eclipse-temurin-21 \
   mvn -B -ntp -Dmaven.repo.local=/workspace/.ci-cache/m2 test
 docker run --rm --user "$uid_gid" -e HOME=/tmp -v "$PWD:/workspace" -w /workspace python:3.12-slim \
