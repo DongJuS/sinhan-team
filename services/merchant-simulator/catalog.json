@@ -1,0 +1,5 @@
+[
+{"id":"m1","name":"정든 한식","cuisine":"한식","regions":["SEOUL"],"deliveryFeeKrw":2000,"deliveryMinutes":25,"localCurrencyAccepted":true,"revision":1,"menus":[{"id":"bibimbap","name":"비빔밥","priceKrw":7500,"ingredients":["계란"],"stock":1000},{"id":"bulgogi","name":"불고기덮밥","priceKrw":8500,"ingredients":["소고기","밀"],"stock":1000},{"id":"stew","name":"된장찌개","priceKrw":7000,"ingredients":["밀"],"stock":1000}]},
+{"id":"m2","name":"동네 중식","cuisine":"중식","regions":["SEOUL"],"deliveryFeeKrw":1000,"deliveryMinutes":30,"localCurrencyAccepted":true,"revision":1,"menus":[{"id":"jajang","name":"짜장면","priceKrw":7000,"ingredients":["밀","돼지고기"],"stock":1000},{"id":"friedrice","name":"볶음밥","priceKrw":8000,"ingredients":["계란","새우"],"stock":1000}]},
+{"id":"m3","name":"그린 키친","cuisine":"양식","regions":["SEOUL","BUSAN"],"deliveryFeeKrw":0,"deliveryMinutes":20,"localCurrencyAccepted":false,"revision":1,"menus":[{"id":"salad","name":"채소 샐러드","priceKrw":8500,"ingredients":["땅콩"],"stock":1000},{"id":"pasta","name":"토마토 파스타","priceKrw":9500,"ingredients":["밀"],"stock":1000}]}
+]
