@@ -66,7 +66,7 @@ public class Workflow {
       return;
     }
     var result =
-        http.post(
+        http.postAgent(
             agent + "/internal/v1/plans",
             new SearchCommand(r.id(), r.input(), List.of()),
             SearchResult.class);
@@ -101,7 +101,7 @@ public class Workflow {
     }
     var best = eligible.getFirst();
     var explained =
-        http.post(
+        http.postAgent(
             agent + "/internal/v1/explanations",
             Map.of("quote", best, "evaluatedCandidates", eligible.size()),
             Map.class);

@@ -14,6 +14,7 @@ import org.springframework.web.client.*;
 /** HTTP, credentials and trace adapter only. No business rules or shared persistence. */
 public class ServiceHttp {
   private final RestClient client;
+  private final RestClient agentClient;
   private String token;
   private long tokenUntil;
 
@@ -23,6 +24,12 @@ public class ServiceHttp {
             HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build());
     factory.setReadTimeout(Duration.ofSeconds(12));
     client = builder.requestFactory(factory).build();
+    var agentFactory =
+        new JdkClientHttpRequestFactory(
+            HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build());
+    agentFactory.setReadTimeout(
+        Duration.ofSeconds(Long.parseLong(env("AI_CALL_TIMEOUT_SECONDS", "300"))));
+    agentClient = builder.clone().requestFactory(agentFactory).build();
   }
 
   public synchronized String serviceToken() {
@@ -53,9 +60,18 @@ public class ServiceHttp {
     return postAs(url, body, type, serviceToken());
   }
 
+  public <T> T postAgent(String url, Object body, Class<T> type) {
+    return postUsing(agentClient, url, body, type, serviceToken());
+  }
+
   public <T> T postAs(String url, Object body, Class<T> type, String bearer) {
+    return postUsing(client, url, body, type, bearer);
+  }
+
+  private <T> T postUsing(
+      RestClient transport, String url, Object body, Class<T> type, String bearer) {
     try {
-      return client
+      return transport
           .post()
           .uri(url)
           .headers(
