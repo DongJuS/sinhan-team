@@ -10,4 +10,5 @@ for service in gateway order-service order-worker agent-service benefit-service 
   images+=("$image")
 done
 mkdir -p .artifacts
-docker image inspect "${images[@]}" --format '{{json .}}' > .artifacts/release-images.json
+docker image inspect "${images[@]}" > .artifacts/release-images.json
+python3 -m json.tool .artifacts/release-images.json > /dev/null
