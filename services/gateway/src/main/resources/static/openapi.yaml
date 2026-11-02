@@ -1,0 +1,182 @@
+openapi: 3.0.3
+info:
+  title: 한끼 구매 요청 API
+  version: 0.1.0
+  description: OIDC 사용자 인증 후 Gateway를 통해 호출합니다. 모든 금액은 정수 원화입니다.
+servers:
+  - url: http://localhost:18080
+security:
+  - bearerAuth: []
+paths:
+  /v1/purchase-requests:
+    post:
+      operationId: createPurchaseRequest
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: {type: string, minLength: 8, maxLength: 100, pattern: '^[A-Za-z0-9-]+$'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PurchaseInput'}
+      responses:
+        '202':
+          description: 구매 요청 접수 또는 동일 요청의 기존 상태
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PurchaseState'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {description: 인증 없음 또는 토큰 검증 실패}
+        '409': {$ref: '#/components/responses/Error'}
+  /v1/purchase-requests/{id}:
+    get:
+      operationId: getPurchaseRequest
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: 요청 소유자의 진행 상태
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PurchaseState'}
+        '404': {$ref: '#/components/responses/Error'}
+  /v1/proposals/{id}/approvals:
+    post:
+      operationId: approveProposal
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: string, format: uuid}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [version]
+              properties:
+                version: {type: integer, minimum: 1}
+      responses:
+        '202':
+          description: 승인 완료·실행 접수, 또는 동일 승인의 기존 상태
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PurchaseState'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
+  responses:
+    Error:
+      description: code로 구분하는 오류. PRICE_CHANGED·OUT_OF_STOCK·QUOTE_CHANGED·PROPOSAL_EXPIRED 시 최신 상태를 다시 조회합니다.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+  schemas:
+    PurchaseInput:
+      type: object
+      additionalProperties: false
+      required: [message, address, region]
+      properties:
+        message: {type: string, minLength: 1, maxLength: 2000}
+        address: {type: string, minLength: 1, maxLength: 300}
+        region: {type: string, example: SEOUL}
+        budgetKrw: {type: integer, minimum: 1000, maximum: 1000000, nullable: true}
+        people: {type: integer, minimum: 1, maximum: 10, nullable: true}
+        excludedIngredients: {type: array, items: {type: string}, nullable: true}
+        cuisine: {type: string, nullable: true}
+    Constraints:
+      type: object
+      required: [budgetKrw, people, excludedIngredients]
+      properties:
+        budgetKrw: {type: integer}
+        people: {type: integer}
+        excludedIngredients: {type: array, items: {type: string}}
+        cuisine: {type: string, nullable: true}
+    LineItem:
+      type: object
+      required: [menuId, name, quantity, unitPriceKrw, options, ingredients]
+      properties:
+        menuId: {type: string}
+        name: {type: string}
+        quantity: {type: integer, minimum: 1, maximum: 10}
+        unitPriceKrw: {type: integer, minimum: 0}
+        options: {type: object, additionalProperties: {type: string}}
+        ingredients: {type: array, items: {type: string}}
+    Basket:
+      type: object
+      required: [merchantId, merchantName, items, deliveryFeeKrw, deliveryMinutes, catalogVersion, localCurrencyAccepted]
+      properties:
+        merchantId: {type: string}
+        merchantName: {type: string}
+        items: {type: array, items: {$ref: '#/components/schemas/LineItem'}}
+        deliveryFeeKrw: {type: integer}
+        deliveryMinutes: {type: integer}
+        catalogVersion: {type: string}
+        localCurrencyAccepted: {type: boolean}
+    BenefitQuote:
+      type: object
+      required: [basket, paymentMethod, ruleVersion, instantDiscountKrw, chargeKrw, statementDiscountKrw, cashbackKrw, pointsEarned, pointValueKrw, effectiveCostKrw, expiresAt]
+      properties:
+        basket: {$ref: '#/components/schemas/Basket'}
+        paymentMethod: {type: string, enum: [CARD_A, CARD_B, LOCAL]}
+        ruleVersion: {type: string}
+        instantDiscountKrw: {type: integer}
+        chargeKrw: {type: integer}
+        statementDiscountKrw: {type: integer}
+        cashbackKrw: {type: integer}
+        pointsEarned: {type: integer}
+        pointValueKrw: {type: integer}
+        effectiveCostKrw: {type: integer}
+        expiresAt: {type: string, format: date-time}
+    Proposal:
+      type: object
+      required: [id, requestId, executionId, userId, version, address, region, constraints, quote, explanation, expiresAt]
+      properties:
+        id: {type: string, format: uuid}
+        requestId: {type: string, format: uuid}
+        executionId: {type: string, format: uuid}
+        userId: {type: string}
+        version: {type: integer}
+        address: {type: string}
+        region: {type: string}
+        constraints: {$ref: '#/components/schemas/Constraints'}
+        quote: {$ref: '#/components/schemas/BenefitQuote'}
+        explanation: {type: string}
+        expiresAt: {type: string, format: date-time}
+    PurchaseState:
+      type: object
+      required: [id, userId, input, status, stage, message, candidates, revision]
+      properties:
+        id: {type: string, format: uuid}
+        userId: {type: string}
+        input: {$ref: '#/components/schemas/PurchaseInput'}
+        status: {type: string, enum: [SEARCHING, COMPARING, AWAITING_APPROVAL, EXECUTING, COMPLETED, REPLANNING, RETRYING, RECOVERY_PENDING, FAILED_REFUNDED, FAILED, NEEDS_INPUT]}
+        stage: {type: string, enum: [SEARCH, INPUT, BENEFITS, APPROVAL, START, PAYMENT_PENDING, CONFIRMING, REPLAN_CLEANUP, REFUND_PENDING, DONE, REFUNDED]}
+        message: {type: string}
+        errorCode: {type: string, nullable: true}
+        constraints:
+          allOf: [{$ref: '#/components/schemas/Constraints'}]
+          nullable: true
+        candidates: {type: array, items: {$ref: '#/components/schemas/BenefitQuote'}}
+        proposal:
+          allOf: [{$ref: '#/components/schemas/Proposal'}]
+          nullable: true
+        revision: {type: integer}
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code: {type: string}
+        message: {type: string}
+        traceId: {type: string, nullable: true}
