@@ -1,9 +1,11 @@
 name: sinhan-food
+x-local-dns: &local-dns ["single-request-reopen", "no-aaaa", "timeout:2", "attempts:2"]
 x-oidc: &oidc
   OIDC_ISSUER: http://localhost:18081/realms/food
   OIDC_JWKS: http://keycloak:8080/realms/food/protocol/openid-connect/certs
   OIDC_TOKEN_URL: http://keycloak:8080/realms/food/protocol/openid-connect/token
 x-java: &java
+  dns_opt: *local-dns
   mem_limit: 512m
   restart: unless-stopped
   environment: &java-env
@@ -19,6 +21,7 @@ x-java: &java
     start_period: 40s
 services:
   postgres:
+    dns_opt: *local-dns
     image: postgres:17.6
     mem_limit: 512m
     environment:
@@ -39,6 +42,7 @@ services:
       interval: 5s
       retries: 20
   keycloak:
+    dns_opt: *local-dns
     image: quay.io/keycloak/keycloak:26.4.2
     mem_limit: 1g
     command: ["start-dev", "--import-realm", "--health-enabled=true"]
@@ -62,6 +66,7 @@ services:
       retries: 30
       start_period: 30s
   gateway:
+    dns_opt: *local-dns
     mem_limit: 512m
     build:
       context: .
@@ -136,6 +141,7 @@ services:
       SERVICE_CLIENT_SECRET: payment-service-dev-only
       ENABLE_FAULTS: ${ENABLE_FAULTS:-false}
   agent-service:
+    dns_opt: *local-dns
     mem_limit: 384m
     build:
       context: .
@@ -161,6 +167,7 @@ services:
       interval: 10s
       retries: 20
   merchant-simulator:
+    dns_opt: *local-dns
     mem_limit: 192m
     build:
       context: .
@@ -174,6 +181,7 @@ services:
       interval: 10s
       retries: 20
   tests:
+    dns_opt: *local-dns
     profiles: ["test"]
     build:
       context: .
