@@ -1,0 +1,10 @@
+**/target/
+**/__pycache__/
+**/.pytest_cache/
+.venv/
+.env
+*.log
+.DS_Store
+.ci-secrets/
+.ci-cache/
+.artifacts/

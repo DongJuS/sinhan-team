@@ -1,0 +1,9 @@
+.git
+**/target
+**/__pycache__
+.venv
+.env
+
+.ci-secrets
+.ci-cache
+.artifacts

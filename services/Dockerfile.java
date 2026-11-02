@@ -1,0 +1,14 @@
+FROM maven:3.9.11-eclipse-temurin-21 AS build
+WORKDIR /build
+COPY pom.xml .
+COPY services services
+RUN mvn -B -ntp package -DskipTests
+ARG SERVICE
+RUN cp services/${SERVICE}/target/${SERVICE}-0.1.0.jar /app.jar
+FROM eclipse-temurin:21-jre
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+RUN useradd --system --uid 10001 app
+WORKDIR /app
+COPY --from=build /app.jar app.jar
+USER app
+ENTRYPOINT ["java","-XX:MaxRAMPercentage=70","-jar","app.jar"]
