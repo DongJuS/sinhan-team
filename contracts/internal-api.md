@@ -6,6 +6,7 @@
 |---|---|---|---|
 | Agent | POST /internal/v1/plans | SearchCommand → SearchResult | agent:plan |
 | Agent | POST /internal/v1/explanations | quote, evaluatedCandidates → text, evidence | agent:plan |
+| Agent | GET /internal/v1/runtime | LangGraph 모드·모델·노드 구성 | agent:plan |
 | Agent | GET /internal/v1/evidence?q= | evidence 배열 | agent:plan |
 | 혜택 | POST /internal/v1/benefit-quotes | QuoteCommand → QuoteResult | benefit:quote |
 | 혜택 | POST /internal/v1/reservations | ExecutionCommand → RESERVED | benefit:reserve |
@@ -40,7 +41,7 @@
 | 404 | REQUEST_NOT_FOUND, PAYMENT_NOT_FOUND | 대상별 부재 처리; 사용자 소유권은 404로 숨김 |
 | 409 | PRICE_CHANGED, OUT_OF_STOCK, QUOTE_CHANGED, PROPOSAL_EXPIRED | 결제 여부 확인·예약 정리 후 새 주문안과 재승인 |
 | 409 | IDEMPOTENCY_CONFLICT, APPROVAL_MISMATCH | 동일 ID의 요청 변경 차단 |
-| 503 | DEPENDENCY_UNAVAILABLE, SIMULATED_RESPONSE_LOSS | 저장된 단계에서 결과 확인·재시도 |
+| 503 | DEPENDENCY_UNAVAILABLE, SIMULATED_RESPONSE_LOSS, AI_UNAVAILABLE, AI_INVALID_OUTPUT | 저장된 단계에서 결과 확인·재시도 |
 
 ## 장애 주입
 

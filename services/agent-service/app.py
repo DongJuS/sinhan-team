@@ -6,7 +6,7 @@ from fastapi import FastAPI, Depends, Request
 from platform_auth import require, configure
 from adapters import ServiceClient, PlanStore
 from schemas import PlanCommand, ExplanationInput
-from application import build_plan, explain_quote
+from graphs import AgentWorkflow
 from rag import retrieve, ingest
 
 store = PlanStore()
@@ -16,10 +16,11 @@ service = ServiceClient()
 @asynccontextmanager
 async def lifespan(app):
     await asyncio.to_thread(store.migrate)
-    if not os.getenv("EMBEDDING_BASE_URL"):
+    if not os.getenv("RAG_EMBEDDING_MODEL"):
         await ingest()
     async with httpx.AsyncClient(timeout=httpx.Timeout(10, connect=3)) as client:
         app.state.client = client
+        app.state.workflow = AgentWorkflow(client, service, store)
         yield
 
 
@@ -29,18 +30,13 @@ configure(app, "agent-service")
 
 @app.get("/health")
 def health():
-    return {"status": "UP"}
+    return {"status": "UP", "orchestrator": "langgraph"}
 
 
 @app.post("/internal/v1/plans", dependencies=[Depends(require("agent:plan"))])
 async def plan(command: PlanCommand, request: Request):
-    return await build_plan(
-        command.input.model_dump(),
-        command.excludedMerchants,
-        command.requestId,
-        request.app.state.client,
-        service,
-        store,
+    return await request.app.state.workflow.plan(
+        command.input.model_dump(), command.excludedMerchants, command.requestId
     )
 
 
@@ -51,6 +47,11 @@ async def evidence(q: str, request: Request):
 
 @app.post("/internal/v1/explanations", dependencies=[Depends(require("agent:plan"))])
 async def explain(body: ExplanationInput, request: Request):
-    return await explain_quote(
-        body.quote, body.evaluatedCandidates, request.app.state.client
+    return await request.app.state.workflow.explain(
+        body.quote, body.evaluatedCandidates
     )
+
+
+@app.get("/internal/v1/runtime", dependencies=[Depends(require("agent:plan"))])
+def runtime(request: Request):
+    return request.app.state.workflow.metadata()

@@ -22,16 +22,28 @@ DOCUMENTS = [
 
 
 async def embed(client, texts):
+    from local_model import LocalSettings
+
+    settings = LocalSettings.from_env()
+    model = os.environ["RAG_EMBEDDING_MODEL"]
+    if not model.startswith("qwen") or "cloud" in model.lower():
+        raise ValueError("RAG embeddings must use a local Qwen model")
     r = await client.post(
-        os.environ["EMBEDDING_BASE_URL"].rstrip("/") + "/embeddings",
-        headers={"Authorization": "Bearer " + os.environ["EMBEDDING_API_KEY"]},
-        json={"model": os.environ["EMBEDDING_MODEL"], "input": texts},
+        settings.base_url + "/api/embed",
+        json={
+            "model": model,
+            "input": texts,
+            "truncate": False,
+            "options": {"num_ctx": 2048},
+            "keep_alive": "0",
+        },
+        timeout=httpx.Timeout(90, connect=3),
     )
     r.raise_for_status()
-    rows = sorted(r.json()["data"], key=lambda x: x["index"])
-    if len(rows) != len(texts):
+    vectors = r.json()["embeddings"]
+    if len(vectors) != len(texts) or not vectors or any(not v for v in vectors):
         raise ValueError("Embedding count mismatch")
-    return [row["embedding"] for row in rows]
+    return vectors
 
 
 async def ingest():
@@ -40,10 +52,10 @@ async def ingest():
     PlanStore().migrate()
     vectors = [None] * len(DOCUMENTS)
     model = "lexical-v1"
-    if os.getenv("EMBEDDING_BASE_URL"):
+    if os.getenv("RAG_EMBEDDING_MODEL"):
         async with httpx.AsyncClient(timeout=30) as client:
             vectors = await embed(client, [text for _, text in DOCUMENTS])
-        model = os.environ["EMBEDDING_MODEL"]
+        model = os.environ["RAG_EMBEDDING_MODEL"]
     with psycopg.connect(os.environ["DATABASE_URL"]) as db:
         db.execute("DELETE FROM evidence")
         for (source, text), vector in zip(DOCUMENTS, vectors):
@@ -59,13 +71,13 @@ async def retrieve(query, client):
             "SELECT source,content,embedding,model FROM evidence"
         ).fetchall()
     q = None
-    if os.getenv("EMBEDDING_BASE_URL"):
+    if os.getenv("RAG_EMBEDDING_MODEL"):
         q = (await embed(client, [query]))[0]
     hits = []
     for source, content, vector, model in rows:
         if q is not None:
             if (
-                model != os.environ["EMBEDDING_MODEL"]
+                model != os.environ["RAG_EMBEDDING_MODEL"]
                 or vector is None
                 or len(q) != len(vector)
             ):

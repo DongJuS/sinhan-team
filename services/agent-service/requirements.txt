@@ -1,1 +1,2 @@
 psycopg[binary]==3.2.9
+langgraph==1.2.19
