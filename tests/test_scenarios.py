@@ -17,6 +17,17 @@ CLIENT = httpx.Client(
 )
 
 
+def db_connection(dsn, **kwargs):
+    # Only retry DNS lookup before a connection exists. SQL and authentication failures propagate.
+    for attempt in range(3):
+        try:
+            return psycopg.connect(dsn, connect_timeout=5, **kwargs)
+        except psycopg.OperationalError as exc:
+            if "Temporary failure in name resolution" not in str(exc) or attempt == 2:
+                raise
+            time.sleep(0.25 * (attempt + 1))
+
+
 def token(client, username=None):
     data = {
         "client_id": client,
@@ -368,7 +379,7 @@ def test_database_isolation_and_ledger_balance(auth):
         "payments": "transactions",
     }
     for owner in schemas:
-        with psycopg.connect(
+        with db_connection(
             f"host=postgres dbname=food user={owner}_app password={owner}_dev_only",
             autocommit=True,
         ) as db:
@@ -377,7 +388,7 @@ def test_database_isolation_and_ledger_balance(auth):
                     continue
                 with pytest.raises(psycopg.errors.InsufficientPrivilege):
                     db.execute(f"SELECT * FROM {other}.{tables[other]} LIMIT 1")
-    with psycopg.connect(
+    with db_connection(
         "host=postgres dbname=food user=payments_app password=payments_dev_only options=-csearch_path=payments"
     ) as db:
         rows = db.execute(
@@ -469,7 +480,7 @@ def test_agent_executes_langgraph_and_persists_node_trace(auth):
     assert {"extract", "validate", "catalog", "candidates", "persist"} <= set(
         data["planningNodes"]
     )
-    with psycopg.connect(
+    with db_connection(
         "host=postgres dbname=food user=agent_app password=agent_dev_only options=-csearch_path=agent"
     ) as db:
         row = db.execute(
