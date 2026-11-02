@@ -1,0 +1,7 @@
+global:
+  scrape_interval: 15s
+scrape_configs:
+  - job_name: java-services
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: [order-service:8080, order-worker:8080, benefit-service:8080, control-service:8080, payment-service:8080]

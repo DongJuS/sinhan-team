@@ -1,0 +1,39 @@
+receivers:
+  filelog:
+    include: [/logs/*/*.json]
+    start_at: beginning
+    include_file_path: true
+    operators:
+      - type: regex_parser
+        parse_from: attributes["log.file.path"]
+        regex: '^/logs/(?P<service_name>[^/]+)/.*$'
+      - type: move
+        from: attributes.service_name
+        to: resource["service.name"]
+      - type: json_parser
+        parse_to: attributes
+  otlp:
+    protocols:
+      grpc: {endpoint: "0.0.0.0:4317"}
+      http: {endpoint: "0.0.0.0:4318"}
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 128
+  batch: {}
+exporters:
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls: {insecure: true}
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp/tempo]
+    logs:
+      receivers: [otlp, filelog]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/loki]

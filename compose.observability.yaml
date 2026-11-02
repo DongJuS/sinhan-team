@@ -1,0 +1,116 @@
+services:
+  gateway:
+    environment:
+      TRACING_ENABLED: "true"
+      LOGGING_FILE_NAME: /logs/gateway.json
+      LOGGING_STRUCTURED_FORMAT_FILE: logstash
+    volumes: [gateway-logs:/logs]
+    depends_on:
+      log-init: {condition: service_completed_successfully}
+  order-service:
+    environment:
+      TRACING_ENABLED: "true"
+      LOGGING_FILE_NAME: /logs/order-service.json
+      LOGGING_STRUCTURED_FORMAT_FILE: logstash
+    volumes: [order-service-logs:/logs]
+    depends_on:
+      log-init: {condition: service_completed_successfully}
+  order-worker:
+    environment:
+      TRACING_ENABLED: "true"
+      LOGGING_FILE_NAME: /logs/order-worker.json
+      LOGGING_STRUCTURED_FORMAT_FILE: logstash
+    volumes: [order-worker-logs:/logs]
+    depends_on:
+      log-init: {condition: service_completed_successfully}
+  benefit-service:
+    environment:
+      TRACING_ENABLED: "true"
+      LOGGING_FILE_NAME: /logs/benefit-service.json
+      LOGGING_STRUCTURED_FORMAT_FILE: logstash
+    volumes: [benefit-service-logs:/logs]
+    depends_on:
+      log-init: {condition: service_completed_successfully}
+  control-service:
+    environment:
+      TRACING_ENABLED: "true"
+      LOGGING_FILE_NAME: /logs/control-service.json
+      LOGGING_STRUCTURED_FORMAT_FILE: logstash
+    volumes: [control-service-logs:/logs]
+    depends_on:
+      log-init: {condition: service_completed_successfully}
+  payment-service:
+    environment:
+      TRACING_ENABLED: "true"
+      LOGGING_FILE_NAME: /logs/payment-service.json
+      LOGGING_STRUCTURED_FORMAT_FILE: logstash
+    volumes: [payment-service-logs:/logs]
+    depends_on:
+      log-init: {condition: service_completed_successfully}
+  agent-service:
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      LOG_FILE: /logs/agent-service.json
+    volumes: [agent-service-logs:/logs]
+    depends_on:
+      log-init: {condition: service_completed_successfully}
+  merchant-simulator:
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      LOG_FILE: /logs/merchant-simulator.json
+    volumes: [merchant-simulator-logs:/logs]
+    depends_on:
+      log-init: {condition: service_completed_successfully}
+  log-init:
+    image: busybox:1.37
+    command: ["sh", "-c", "chown -R 10001:10001 /logs"]
+    volumes:
+      - gateway-logs:/logs/gateway
+      - order-service-logs:/logs/order-service
+      - order-worker-logs:/logs/order-worker
+      - benefit-service-logs:/logs/benefit-service
+      - control-service-logs:/logs/control-service
+      - payment-service-logs:/logs/payment-service
+      - agent-service-logs:/logs/agent-service
+      - merchant-simulator-logs:/logs/merchant-simulator
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.135.0
+    command: ["--config=/etc/otel.yaml"]
+    volumes:
+      - ./infra/observability/otel.yaml:/etc/otel.yaml:ro
+      - gateway-logs:/logs/gateway:ro
+      - order-service-logs:/logs/order-service:ro
+      - order-worker-logs:/logs/order-worker:ro
+      - benefit-service-logs:/logs/benefit-service:ro
+      - control-service-logs:/logs/control-service:ro
+      - payment-service-logs:/logs/payment-service:ro
+      - agent-service-logs:/logs/agent-service:ro
+      - merchant-simulator-logs:/logs/merchant-simulator:ro
+    depends_on: [tempo, loki]
+  prometheus:
+    image: prom/prometheus:v3.6.0
+    volumes: ["./infra/observability/prometheus.yaml:/etc/prometheus/prometheus.yml:ro"]
+  tempo:
+    image: grafana/tempo:2.8.2
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes: ["./infra/observability/tempo.yaml:/etc/tempo.yaml:ro"]
+  loki:
+    image: grafana/loki:3.5.5
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+  grafana:
+    image: grafana/grafana:12.2.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-grafana-dev-only}
+    ports: ["127.0.0.1:13000:3000"]
+    volumes: ["./infra/observability/datasources.yaml:/etc/grafana/provisioning/datasources/default.yaml:ro"]
+
+volumes:
+  gateway-logs:
+  order-service-logs:
+  order-worker-logs:
+  benefit-service-logs:
+  control-service-logs:
+  payment-service-logs:
+  agent-service-logs:
+  merchant-simulator-logs:

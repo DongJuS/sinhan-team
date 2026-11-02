@@ -1,0 +1,178 @@
+name: sinhan-food
+x-oidc: &oidc
+  OIDC_ISSUER: http://localhost:18081/realms/food
+  OIDC_JWKS: http://keycloak:8080/realms/food/protocol/openid-connect/certs
+  OIDC_TOKEN_URL: http://keycloak:8080/realms/food/protocol/openid-connect/token
+x-java: &java
+  restart: unless-stopped
+  environment: &java-env
+    <<: *oidc
+  depends_on:
+    postgres: {condition: service_healthy}
+    keycloak: {condition: service_healthy}
+  healthcheck:
+    test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health >/dev/null"]
+    interval: 10s
+    timeout: 5s
+    retries: 20
+    start_period: 40s
+services:
+  postgres:
+    image: postgres:17.6
+    environment:
+      POSTGRES_DB: food
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres-dev-only}
+      ORDERS_DB_PASSWORD: ${ORDERS_DB_PASSWORD:-orders_dev_only}
+      AGENT_DB_PASSWORD: ${AGENT_DB_PASSWORD:-agent_dev_only}
+      BENEFITS_DB_PASSWORD: ${BENEFITS_DB_PASSWORD:-benefits_dev_only}
+      CONTROL_DB_PASSWORD: ${CONTROL_DB_PASSWORD:-control_dev_only}
+      PAYMENTS_DB_PASSWORD: ${PAYMENTS_DB_PASSWORD:-payments_dev_only}
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak_dev_only}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init.sh:/docker-entrypoint-initdb.d/01-init.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d food"]
+      interval: 5s
+      retries: 20
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.4.2
+    command: ["start-dev", "--import-realm", "--health-enabled=true"]
+    environment:
+      KC_HOSTNAME: http://localhost:18081
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak_app
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak_dev_only}
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin-dev-only}
+    ports: ["127.0.0.1:18081:8080"]
+    volumes: ["./infra/keycloak/realm.json:/opt/keycloak/data/import/realm.json:ro"]
+    depends_on:
+      postgres: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/9000; printf \"GET /health/ready HTTP/1.0\\r\\n\\r\\n\" >&3; cat <&3 | grep -q UP'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+  gateway:
+    build:
+      context: .
+      dockerfile: services/Dockerfile.java
+      args: {SERVICE: gateway}
+    environment: *oidc
+    ports: ["127.0.0.1:18080:8080"]
+    depends_on:
+      order-service: {condition: service_healthy}
+  order-service:
+    <<: *java
+    build:
+      context: .
+      dockerfile: services/Dockerfile.java
+      args: {SERVICE: order-service}
+    environment:
+      <<: *oidc
+      DB_PASSWORD: ${ORDERS_DB_PASSWORD:-orders_dev_only}
+      SERVICE_CLIENT_ID: order-api
+      SERVICE_CLIENT_SECRET: order-api-dev-only
+  order-worker:
+    <<: *java
+    build:
+      context: .
+      dockerfile: services/Dockerfile.java
+      args: {SERVICE: order-service}
+    environment:
+      <<: *oidc
+      DB_PASSWORD: ${ORDERS_DB_PASSWORD:-orders_dev_only}
+      SERVICE_CLIENT_ID: order-worker
+      SERVICE_CLIENT_SECRET: order-worker-dev-only
+      WORKER_ENABLED: "true"
+      SPRING_APPLICATION_NAME: order-worker
+  benefit-service:
+    <<: *java
+    build:
+      context: .
+      dockerfile: services/Dockerfile.java
+      args: {SERVICE: benefit-service}
+    environment:
+      <<: *oidc
+      DB_PASSWORD: ${BENEFITS_DB_PASSWORD:-benefits_dev_only}
+      SERVICE_CLIENT_ID: benefit-service
+      SERVICE_CLIENT_SECRET: benefit-service-dev-only
+  control-service:
+    <<: *java
+    build:
+      context: .
+      dockerfile: services/Dockerfile.java
+      args: {SERVICE: control-service}
+    environment:
+      <<: *oidc
+      DB_PASSWORD: ${CONTROL_DB_PASSWORD:-control_dev_only}
+      SERVICE_CLIENT_ID: control-service
+      SERVICE_CLIENT_SECRET: control-service-dev-only
+  payment-service:
+    <<: *java
+    build:
+      context: .
+      dockerfile: services/Dockerfile.java
+      args: {SERVICE: payment-service}
+    environment:
+      <<: *oidc
+      DB_PASSWORD: ${PAYMENTS_DB_PASSWORD:-payments_dev_only}
+      SERVICE_CLIENT_ID: payment-service
+      SERVICE_CLIENT_SECRET: payment-service-dev-only
+      ENABLE_FAULTS: ${ENABLE_FAULTS:-false}
+  agent-service:
+    build:
+      context: .
+      dockerfile: services/agent-service/Dockerfile
+    environment:
+      <<: *oidc
+      SERVICE_CLIENT_SECRET: agent-service-dev-only
+      DATABASE_URL: postgresql://agent_app:${AGENT_DB_PASSWORD:-agent_dev_only}@postgres:5432/food?options=-csearch_path%3Dagent
+      AI_MODE: ${AI_MODE:-fixture}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-}
+    depends_on:
+      postgres: {condition: service_healthy}
+      keycloak: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      retries: 20
+  merchant-simulator:
+    build:
+      context: .
+      dockerfile: services/merchant-simulator/Dockerfile
+    environment:
+      <<: *oidc
+      ENABLE_FAULTS: ${ENABLE_FAULTS:-false}
+    volumes: ["merchantdata:/data"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      retries: 20
+  tests:
+    profiles: ["test"]
+    build:
+      context: .
+      dockerfile: tests/Dockerfile
+    environment:
+      BASE_URL: http://gateway:8080
+    depends_on:
+      gateway: {condition: service_started}
+      agent-service: {condition: service_healthy}
+      merchant-simulator: {condition: service_healthy}
+      payment-service: {condition: service_healthy}
+      control-service: {condition: service_healthy}
+      benefit-service: {condition: service_healthy}
+      order-worker: {condition: service_healthy}
+volumes:
+  pgdata:
+  merchantdata:

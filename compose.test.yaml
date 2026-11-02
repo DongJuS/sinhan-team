@@ -1,0 +1,32 @@
+services:
+  gateway:
+    environment:
+      OIDC_ISSUER: http://localhost:28081/realms/food
+    ports: !override ["127.0.0.1:28080:8080"]
+  order-service:
+    environment:
+      OIDC_ISSUER: http://localhost:28081/realms/food
+  order-worker:
+    environment:
+      OIDC_ISSUER: http://localhost:28081/realms/food
+  agent-service:
+    environment:
+      OIDC_ISSUER: http://localhost:28081/realms/food
+  benefit-service:
+    environment:
+      OIDC_ISSUER: http://localhost:28081/realms/food
+  control-service:
+    environment:
+      OIDC_ISSUER: http://localhost:28081/realms/food
+  payment-service:
+    environment:
+      OIDC_ISSUER: http://localhost:28081/realms/food
+      ENABLE_FAULTS: "true"
+  merchant-simulator:
+    environment:
+      OIDC_ISSUER: http://localhost:28081/realms/food
+      ENABLE_FAULTS: "true"
+  keycloak:
+    environment:
+      KC_HOSTNAME: http://localhost:28081
+    ports: !override ["127.0.0.1:28081:8080"]
