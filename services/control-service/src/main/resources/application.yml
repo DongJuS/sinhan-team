@@ -1,0 +1,31 @@
+server:
+  port: 8080
+spring:
+  application:
+    name: control-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://postgres:5432/food?currentSchema=control}
+    username: ${DB_USER:control_app}
+    password: ${DB_PASSWORD:control_dev_only}
+  flyway:
+    default-schema: control
+    schemas: control
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  tracing:
+    enabled: ${TRACING_ENABLED:false}
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: http://otel-collector:4318/v1/traces
+logging:
+  structured:
+    format:
+      console: logstash

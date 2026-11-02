@@ -1,0 +1,2 @@
+CREATE TABLE approvals(proposal_id text PRIMARY KEY,user_id text NOT NULL,execution_id text UNIQUE NOT NULL,payload jsonb NOT NULL,digest text NOT NULL,status text NOT NULL CHECK(status IN ('PREPARED','APPROVED','CLAIMED','REVOKED')),updated_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE audit(id bigserial PRIMARY KEY,proposal_id text NOT NULL,action text NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
