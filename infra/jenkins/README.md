@@ -50,3 +50,9 @@ docker compose -f compose.jenkins.yaml ps
 Ollama는 Jenkins/Docker VM 밖의 Mac에서 실행하여 Metal GPU와 10~20GB 모델 메모리를 사용합니다. Agent와 검증 컨테이너는 `host.docker.internal:11435`로 연결합니다. 16GB 모델을 Jenkins 이미지나 Git 저장소에 포함하지 않습니다.
 
 일반 통합 테스트는 `compose.test.yaml`에서 `AI_MODE=fixture`로 고정합니다. 실제 모델 검증은 `Local Qwen validation` 단계에서 별도로 실행하고 `.artifacts/local-ai-validation.log`에 결과를 보관합니다. 모델 서버가 꺼져 있거나 준비되지 않았다면 배포 검증이 실패하며 시연 응답으로 대체하지 않습니다. 코드 검사만 필요하면 DEPLOY=false로 실행할 수 있습니다.
+
+## 8GiB Docker VM에서의 순차 검증
+
+Jenkins의 통합 테스트 단계는 `ci-integration.sh`를 사용합니다. 기존 로컬 시연 컨테이너와 테스트 컨테이너를 두 벌 동시에 유지하지 않도록, 실행 중이던 시연 컨테이너만 잠시 멈춥니다. 테스트 종료 시 테스트 환경을 정리하고 기존 PostgreSQL → Keycloak → 업무 서비스 순서로 원래 이미지·설정의 컨테이너를 다시 시작합니다. 원래 중지돼 있던 컨테이너나 다른 프로젝트는 건드리지 않습니다.
+
+이 단계 동안 로컬 시연 화면에 일시 중단이 있습니다. 데이터 볼륨을 삭제하지 않으며 테스트 실패 시에도 복구를 시도합니다. 지속적인 서비스 가용성이 필요한 운영 환경에서는 CI 빌드 노드와 배포 서버를 분리해야 합니다. 호스트 Mac의 Qwen 모델은 Docker VM 밖에서 실행됩니다.

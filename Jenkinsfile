@@ -34,7 +34,7 @@ pipeline {
             steps { sh 'docker compose build' }
         }
         stage('Integration and crash recovery') {
-            steps { sh './scripts/test-integration.sh' }
+            steps { sh './scripts/ci-integration.sh' }
         }
         stage('Local Qwen validation') {
             when { expression { params.DEPLOY } }
